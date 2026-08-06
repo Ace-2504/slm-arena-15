@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Experiment Playbook — SLM Paper to ~98% Acceptance</title>
+<style>
+:root{--ink:#1a1a1a;--muted:#5a5a5a;--rule:#e6e6e6;--bg:#f6f7f8;--card:#fff;
+--t1:#1f6f4f;--t2:#7a4a1f;--accent:#1f4e5f;--gold:#9a6a1a;--red:#b3261e;}
+*{box-sizing:border-box;}
+body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);margin:0;padding:0 0 70px;line-height:1.55;font-size:15px;}
+.wrap{max-width:900px;margin:0 auto;padding:0 18px;}
+header.top{background:linear-gradient(135deg,#123a30,#1f6f4f 70%,#20506a);color:#fff;padding:30px 0 24px;}
+header.top h1{margin:0 0 6px;font-size:1.6rem;}
+header.top p{margin:0;color:#d7e9e0;font-size:.98rem;max-width:720px;}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 2px;font-size:.82rem;color:var(--muted);}
+.pill{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:12px;padding:2px 8px;color:#fff;}
+.pill.t1{background:var(--t1);}.pill.t2{background:var(--t2);}.pill.me{background:var(--accent);}.pill.you{background:var(--red);}
+.intro{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px 20px;margin:20px 0;}
+.intro b{color:var(--accent);}
+.prog{font-size:.85rem;color:var(--muted);margin:6px 0 0;}
+.bar{height:8px;background:#e3e6e8;border-radius:6px;overflow:hidden;margin-top:6px;}
+.bar>i{display:block;height:100%;width:0;background:var(--t1);transition:width .3s;}
+.card{background:var(--card);border:1px solid var(--rule);border-left:5px solid var(--t1);border-radius:12px;padding:16px 20px;margin:16px 0;}
+.card.t2{border-left-color:var(--t2);}
+.card h2{margin:0 0 4px;font-size:1.12rem;display:flex;align-items:flex-start;gap:10px;}
+.card h2 .n{background:var(--t1);color:#fff;border-radius:8px;width:30px;height:30px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:.95rem;}
+.card.t2 h2 .n{background:var(--t2);}
+.chk{margin-left:auto;font-size:.8rem;color:var(--muted);white-space:nowrap;}
+.chk input{transform:scale(1.25);margin-right:5px;vertical-align:middle;}
+.oneline{font-style:italic;color:var(--muted);margin:2px 0 10px;}
+.sec{margin:10px 0;}
+.sec .lab{font-weight:700;color:var(--accent);font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:3px;}
+.card.t2 .sec .lab{color:var(--t2);}
+ol.steps{margin:2px 0 2px 2px;padding-left:20px;}
+ol.steps>li{margin-bottom:5px;}
+.meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:10px;border-top:1px dashed var(--rule);padding-top:8px;}
+.meta b{color:var(--ink);}
+.watch{background:#fff7ed;border:1px solid #f0d8b8;border-radius:8px;padding:8px 12px;font-size:.86rem;margin-top:8px;}
+.watch b{color:#9a5b0a;}
+code{background:#eef1f2;padding:1px 5px;border-radius:4px;font-size:.86em;font-family:Consolas,monospace;}
+.who{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:10px;padding:2px 7px;color:#fff;vertical-align:middle;}
+.who.me{background:var(--accent);}.who.you{background:var(--red);}
+h3.grouphead{margin:28px 0 2px;font-size:1rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid var(--rule);padding-bottom:5px;}
+.sched{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:14px 20px;margin:22px 0;}
+.sched table{border-collapse:collapse;width:100%;font-size:.86rem;margin-top:6px;}
+.sched td,.sched th{border:1px solid var(--rule);padding:6px 9px;text-align:left;vertical-align:top;}
+.sched th{background:#eef2f1;}
+footer{color:var(--muted);font-size:.8rem;margin-top:26px;border-top:1px solid var(--rule);padding-top:14px;}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+<h1>Experiment Playbook — getting the SLM paper to ~98%</h1>
+<p>Seven experiments, in plain language, in the order to do them. Tier 1 (green) is mandatory and takes you to ~93–95%. Tier 2 (brown) banks the last few points to ~97–98%. Tick each off as you go.</p>
+<div class="legend">
+<span><span class="pill t1">Tier 1</span> must-do, ~1 week</span>
+<span><span class="pill t2">Tier 2</span> booster, +1 week</span>
+<span><span class="who me">Claude</span> I do it</span>
+<span><span class="who you">You</span> only you can</span>
+</div>
+</div></header>
+
+<div class="wrap">
+
+<div class="intro">
+<p><b>The one idea:</b> a reviewer accepts your paper when they can't find a real reason to reject it. Each experiment below removes one specific reason. Do them and there's nothing left to attack.</p>
+<p><b>How the work splits:</b> the boring statistics I do for you — you just export your numbers once. Your real job is two things only: <b>grade ~130 answers by hand</b> (Experiment 1) and <b>launch the extra training runs</b> (Experiment 5). Everything else is small.</p>
+<div class="prog" id="progText">0 of 8 done</div>
+<div class="bar"><i id="progBar"></i></div>
+</div>
+
+<h3 class="grouphead">Step 0 · Prep (do this first, 1 hour)</h3>
+
+<div class="card">
+<h2><span class="n">0</span> Export your raw scores into one file <span class="chk"><label><input type="checkbox" data-k="e0"> done</label></span></h2>
+<p class="oneline">Everything downstream runs off this one table. Get it out once, cleanly.</p>
+<div class="sec"><span class="lab">What to do <span class="who you">You</span></span>
+<ol class="steps">
+<li>Make <b>one row per (model × question)</b> — that's 13 models × 500 questions ≈ 6,500 rows.</li>
+<li>Columns: <code>model, size, stage, question_id, source</code> (case_law / sec / web), the four rubric parts <code>correctness, completeness, groundedness, clarity</code>, the <code>total</code> (0–10), and two flags <code>grounded</code> (true/false) and <code>fabricated</code> (true/false).</li>
+<li>Save as <b>CSV or JSON</b>. Also keep the <b>answer text</b> and <b>gold answer</b> for each row — you'll need those for the human grading in Experiment 1.</li>
+</ol></div>
+<div class="watch"><b>Watch out:</b> the <code>question_id</code> must be identical across all 13 models, so the same question lines up. That's what lets me do the paired tests.</div>
+<div class="meta"><span><b>Time:</b> ~1 hour</span><span><b>Cost:</b> ₹0</span><span><b>Hands it to:</b> Experiments 1, 2, 3, 4, 7</span></div>
+</div>
+
+<h3 class="grouphead">Tier 1 · The must-dos (→ ~93–95%)</h3>
+
+<div class="card">
+<h2><span class="n">1</span> Check the AI judge against a human — you <span class="chk"><label><input type="checkbox" data-k="e1"> done</label></span></h2>
+<p class="oneline">The single most important experiment. Without it, one reviewer sentence can sink the paper.</p>
+<div class="sec"><span class="lab">Why it matters</span>
+Right now every number depends on one AI judge nobody checked. A reviewer will say <i>"how do you know the judge is right?"</i> This answers it with data.</div>
+<div class="sec"><span class="lab">What to do <span class="who you">You</span></span>
+<ol class="steps">
+<li>Pick <b>~10 answers from each of the 13 models</b> (≈130 total), spread across case-law / SEC / web. This "spread" is called a <b>stratified sample</b> — it just means don't grade only the good models.</li>
+<li>For each one, read the <b>question + the gold answer + the model's answer</b>, and give <b>your own 0–10</b> using the same rubric (correctness 0–5, completeness 0–2, groundedness 0–2, clarity 0–1). Also tick <b>fabricated? yes/no</b>.</li>
+<li><b>Do it blind</b> — hide the AI judge's score while you grade, so you're not influenced.</li>
+<li>Put your score next to the AI's score in the file and send it to me.</li>
+</ol></div>
+<div class="sec"><span class="lab">What I compute &amp; where it goes <span class="who me">Claude</span></span>
+Agreement between you and the judge: <b>weighted Cohen's κ</b>, <b>correlation</b>, and <b>"% within 1 point."</b> Good result: κ ≥ 0.6, correlation ≥ 0.7. Goes into a new section <b>"Judge calibration."</b></div>
+<div class="watch"><b>Watch out:</b> grade blind, and include the near-zero models too — if you only grade Gemma, the agreement looks fake. This is the long pole: <b>start it today.</b></div>
+<div class="meta"><span><b>Your time:</b> 6–8 h</span><span><b>Cost:</b> ₹0</span><span><b>Kills:</b> "single unchecked judge"</span></div>
+</div>
+
+<div class="card">
+<h2><span class="n">2</span> Get a second, different AI judge to re-grade <span class="chk"><label><input type="checkbox" data-k="e2"> done</label></span></h2>
+<p class="oneline">If two different AI judges rank your models the same way, no one can call it a judge quirk.</p>
+<div class="sec"><span class="lab">Why it matters</span>
+One judge has its own blind spots. A second judge from a different family (you use Gemini → add a GPT-class or Claude judge) proves the ranking isn't an artifact of that one model.</div>
+<div class="sec"><span class="lab">What to do <span class="who you">You</span> <span class="who me">Claude</span></span>
+<ol class="steps">
+<li>Re-score the <b>same answers</b> (all 500, or a 150 subset if budget is tight) with a <b>different judge model</b>, using the <b>exact same rubric and prompt</b>.</li>
+<li>I'll hand you the scoring script; you just plug in the other API key and run it. Keep everything else identical.</li>
+<li>Send me both judges' scores.</li>
+</ol></div>
+<div class="sec"><span class="lab">What I compute <span class="who me">Claude</span></span>
+<b>Rank correlation</b> between the two judges (Spearman / Kendall) and whether the leaderboard order stays the same. Add one line: "the ranking is stable across two independent judges."</div>
+<div class="watch"><b>Watch out:</b> same prompt, same rubric, same questions — only the judge model changes. Any other difference muddies the comparison.</div>
+<div class="meta"><span><b>Your time:</b> 2–4 h + a short API run</span><span><b>Cost:</b> a few $</span><span><b>Kills:</b> "single-judge bias"</span></div>
+</div>
+
+<div class="card">
+<h2><span class="n">3</span> Put error bars on the leaderboard <span class="chk"><label><input type="checkbox" data-k="e3"> done</label></span></h2>
+<p class="oneline">Turns "9.80 beats 9.74" into a defensible claim (or an honest "these two tie").</p>
+<div class="sec"><span class="lab">Why it matters</span>
+A leaderboard with no error bars invites <i>"is 3.60 really different from 3.69?"</i> Confidence intervals answer that up front.</div>
+<div class="sec"><span class="lab">What I do (you do nothing but export) <span class="who me">Claude</span></span>
+<ol class="steps">
+<li><b>Bootstrap confidence intervals</b> — I re-sample your 500 questions thousands of times to get a 95% range for each model's score. (Plain meaning: "if we'd asked a slightly different 500 questions, the score would land in this band.")</li>
+<li><b>Paired significance tests</b> (Wilcoxon signed-rank) between neighbouring models, with a correction for testing many pairs — so we only claim a gap is real when it is.</li>
+</ol></div>
+<div class="sec"><span class="lab">Where it goes</span>Error bars added to the results table + a new short section <b>"Statistical significance."</b></div>
+<div class="watch"><b>Watch out:</b> nothing on your side — this is pure re-analysis of the file from Step 0. No new model runs, no cost.</div>
+<div class="meta"><span><b>Your time:</b> ~0</span><span><b>Cost:</b> ₹0</span><span><b>Kills:</b> "no error bars / no significance"</span></div>
+</div>
+
+<div class="card">
+<h2><span class="n">4</span> Prove the fabrication finding is real <span class="chk"><label><input type="checkbox" data-k="e4"> done</label></span></h2>
+<p class="oneline">Your best, most original result — make it statistically bulletproof.</p>
+<div class="sec"><span class="lab">Why it matters</span>
+"Alignment increases fabrication" (Gemma 0.2% → 29.4%) is the paper's headline. Right now it's a number in a table; a test makes it a <b>proven result</b>.</div>
+<div class="sec"><span class="lab">What I do <span class="who me">Claude</span></span>
+A <b>McNemar test</b> — the right test when the same questions are answered by "before alignment" and "after alignment," and you're comparing a yes/no flag (fabricated or not). I report the p-value and effect size for base-vs-RLAIF and base-vs-DPO.</div>
+<div class="sec"><span class="lab">What to do <span class="who you">You</span></span>Nothing extra — it uses the <code>fabricated</code> flags already in your Step-0 file. (Bonus: hand-confirm ~40 of the flagged answers really do fabricate, folded into Experiment 1.)</div>
+<div class="watch"><b>Watch out:</b> make sure the fabrication flag is per-question and paired across stages, or the test can't run.</div>
+<div class="meta"><span><b>Your time:</b> ~0</span><span><b>Cost:</b> ₹0</span><span><b>Kills:</b> "is the fabrication jump just noise?"</span></div>
+</div>
+
+<h3 class="grouphead">Tier 2 · The boosters (→ ~97–98%)</h3>
+
+<div class="card t2">
+<h2><span class="n">5</span> Re-run the alignment with 2–3 random seeds <span class="chk"><label><input type="checkbox" data-k="e5"> done</label></span></h2>
+<p class="oneline">Shows your alignment results (and the fabrication jump) aren't one lucky/unlucky run.</p>
+<div class="sec"><span class="lab">Why it matters</span>
+Training has randomness. Doing it once could be a fluke. Running the same recipe 2–3 times with different <b>seeds</b> (the random starting number) and reporting the average ± spread proves it's a real effect.</div>
+<div class="sec"><span class="lab">What to do <span class="who you">You</span></span>
+<ol class="steps">
+<li>Take your <b>DPO and RLAIF</b> recipes (the stages that matter most) and re-run each <b>2 more times</b> with a different seed, for the key model sizes.</li>
+<li>Re-score each with the judge; report <b>mean ± standard deviation</b> across seeds.</li>
+<li>These mostly run unattended on Modal — launch them and walk away.</li>
+</ol></div>
+<div class="watch"><b>Watch out:</b> this is the only experiment that needs GPU time and can slip if your pipeline is flaky. It's a booster — if the clock gets tight, <b>skip it</b>; Tier 1 already clears the bar. Launch it early so it finishes in the background.</div>
+<div class="meta"><span><b>Your time:</b> 2–3 h to launch</span><span><b>Wall-clock:</b> 3–6 days (unattended)</span><span><b>Cost:</b> ~$10–30</span></div>
+</div>
+
+<div class="card t2">
+<h2><span class="n">6</span> Release the code + eval set (anonymised) <span class="chk"><label><input type="checkbox" data-k="e6"> done</label></span></h2>
+<p class="oneline">"You can run this yourself" is nearly free acceptance points.</p>
+<div class="sec"><span class="lab">Why it matters</span>Reviewers trust and reward work they can reproduce. An open repo signals confidence and rigor.</div>
+<div class="sec"><span class="lab">What to do <span class="who you">You</span> <span class="who me">Claude</span></span>
+<ol class="steps">
+<li>Put the <b>500-question eval set</b>, the <b>judge prompt/rubric</b>, the <b>scoring code</b>, and at least a couple of <b>checkpoints</b> in a repo.</li>
+<li>Make it <b>anonymous for review</b> (no name, no personal GitHub) — use an anonymised mirror; reveal the real link only in the final camera-ready.</li>
+<li>I'll write the README and the dataset card for you.</li>
+</ol></div>
+<div class="watch"><b>Watch out:</b> double-blind means the repo, the arena URL, and your name must NOT appear in the submitted PDF. Reveal them only after acceptance.</div>
+<div class="meta"><span><b>Your time:</b> 3–5 h</span><span><b>Cost:</b> ₹0</span><span><b>Kills:</b> "is this reproducible?"</span></div>
+</div>
+
+<div class="card t2">
+<h2><span class="n">7</span> Check the judge for the well-known AI-judge biases <span class="chk"><label><input type="checkbox" data-k="e7"> done</label></span></h2>
+<p class="oneline">Shows the informed reviewer you already thought of their objection.</p>
+<div class="sec"><span class="lab">Why it matters</span>AI judges are known to sometimes favour <b>longer</b> answers, answer <b>order</b>, or their <b>own family's</b> style. Showing you checked these makes the judge credible.</div>
+<div class="sec"><span class="lab">What I do <span class="who me">Claude</span></span>
+From your Step-0 file: correlate <b>answer length vs score</b> (verbosity bias), note you already score <b>one answer at a time</b> (kills order bias), and check the Gemini judge doesn't over-reward Gemma/AI-aligned outputs (self-preference). One tight paragraph in the methods.</div>
+<div class="watch"><b>Watch out:</b> if a bias <i>does</i> show up, that's fine — report it honestly as a limitation. Honesty reads as strength.</div>
+<div class="meta"><span><b>Your time:</b> ~1 h</span><span><b>Cost:</b> ₹0</span><span><b>Kills:</b> "did you control for judge bias?"</span></div>
+</div>
+
+<div class="sched">
+<h3 style="margin:0 0 4px;font-size:1rem;">The 2-week run to 30 Aug</h3>
+<table>
+<tr><th>When</th><th>You do</th><th>I do</th></tr>
+<tr><td>Days 1–2</td><td>Export scores (Step 0). Start hand-grading (Exp 1). Launch seed runs (Exp 5).</td><td>Run CIs, significance, McNemar, bias checks (Exp 3, 4, 7).</td></tr>
+<tr><td>Days 3–7</td><td>Finish grading (Exp 1). Run second judge (Exp 2).</td><td>Compute κ + inter-judge agreement. Draft the two new sections. → <b>Tier 1 done ≈ 94%</b></td></tr>
+<tr><td>Days 8–12</td><td>Seed runs finish; package repo (Exp 6).</td><td>Fold seed results + repo in. → <b>Tier 2 done ≈ 98%</b></td></tr>
+<tr><td>Days 13–20</td><td>Move into the Springer template; proofread; scrub double-blind.</td><td>Format pass, references, similarity-safe check.</td></tr>
+<tr><td>Days 21–29</td><td>Buffer. Submit early — never on the last day.</td><td>—</td></tr>
+</table>
+</div>
+
+<div class="intro">
+<p><b>Mentor's bottom line:</b> the whole game is <b>Experiment 1</b> (your 6–8 hours of grading) plus <b>letting Experiment 5 cook in the background</b>. Do those two, hand me your numbers, and I turn every other experiment into finished paper sections. Start the grading today — it's the only thing that can't be rushed at the end.</p>
+</div>
+
+<footer>Companion to the ICAIN-2026 SS016 paper draft. Tier 1 → ~93–95%, Tier 1+2 → ~97–98%; the last ~2% is reviewer variance and submission logistics, handled with care, not experiments. Progress saves on this device.</footer>
+</div>
+
+<script>
+(function(){
+  var boxes=[].slice.call(document.querySelectorAll('input[type=checkbox]'));
+  function load(){try{return JSON.parse(localStorage.getItem('slm_exp_pb')||'{}');}catch(e){return {};}}
+  function save(s){try{localStorage.setItem('slm_exp_pb',JSON.stringify(s));}catch(e){}}
+  var st=load();
+  function upd(){var n=boxes.filter(function(b){return b.checked;}).length;
+    document.getElementById('progText').textContent=n+' of '+boxes.length+' done';
+    document.getElementById('progBar').style.width=(100*n/boxes.length)+'%';}
+  boxes.forEach(function(b){var k=b.getAttribute('data-k');b.checked=!!st[k];
+    b.addEventListener('change',function(){st[k]=b.checked;save(st);upd();});});
+  upd();
+})();
+</script>
+</body>
+</html>
