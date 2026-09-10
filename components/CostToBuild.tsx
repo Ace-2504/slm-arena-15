@@ -2,9 +2,12 @@
 
 import { Fragment, useState } from "react";
 import FineTunePie from "@/components/FineTunePie";
+import DATA from "@/lib/arena-data.json";
+
+const N_MODELS = DATA.models.length;   // 13 or 15, per this repo's data file
 
 /**
- * Cost to build — what the thirteen models actually cost.
+ * Cost to build — what the models in this arena actually cost.
  *
  * Modal figures are invoiced totals read off the four workspace dashboards, not wall-clock
  * multiplied by an assumed GPU rate. Gemini is the combined API spend for every dataset
@@ -39,7 +42,7 @@ export default function CostToBuild() {
   return (
     <div className="panel card breakout">
       <span className="tag">Cost to build</span>
-      <h2 style={{ marginTop: 6 }}>What the thirteen models cost</h2>
+      <h2 style={{ marginTop: 6 }}>What the {N_MODELS} models cost</h2>
       <p style={{ margin: "6px 0 20px" }}>
         Two bills built this: <strong>Modal</strong> for every GPU hour across four workspaces, and
         the <strong>Gemini API</strong> for generating the training data and running the judge.

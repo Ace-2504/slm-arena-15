@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import ModelText from "@/components/ModelText";
 
 /**
- * The arena: one question -> all 13 models generate LIVE -> every answer is
+ * The arena: one question -> every model in arena-data.json generates LIVE -> each answer is
  * scored LIVE by a blind LLM judge.
  *
  * Two question sources share one box:
