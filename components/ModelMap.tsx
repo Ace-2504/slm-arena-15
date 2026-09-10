@@ -25,8 +25,9 @@ export default function ModelMap({ models }: { models: Model[] }) {
       <span className="tag">The build · {models.length} models in this arena</span>
       <h2 style={{ marginTop: 6 }}>One pipeline, three sizes</h2>
       <p style={{ margin: "6px 0 16px" }}>
-        Each row is a training stage, each column a model size. 125M and 500M were trained from
-        scratch; Gemma&nbsp;2&nbsp;B is Google&apos;s pretrained base. Click any cell to open that
+        Each row is a training stage, each column a model size. The 125M was pre-trained from
+        scratch, the 500M model was pre-trained by my mentor on the same data and
+        Gemma&nbsp;2B is Google&apos;s pretrained base. Click any cell to open that
         model&apos;s own site — training details, cost, architecture and evaluation.
       </p>
 
