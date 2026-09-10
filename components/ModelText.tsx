@@ -46,7 +46,7 @@ function inline(text: string, key: string): React.ReactNode[] {
       out.push(<em key={k}>{m[3]}</em>);
     } else if (m[4] !== undefined) {
       out.push(
-        <code key={k} style={{ background: "var(--panel-3)", padding: "0 4px", borderRadius: 4 }}>
+        <code key={k} style={{ background: "var(--panel-2)", padding: "0 4px", borderRadius: 4 }}>
           {m[4]}
         </code>
       );
@@ -77,7 +77,7 @@ export default function ModelText({ text }: { text: string }) {
           if (bullet) {
             return (
               <span key={key} style={{ display: "flex", gap: 8, paddingLeft: 2 }}>
-                <span style={{ color: "var(--mgreen, #2f6b4f)" }}>•</span>
+                <span style={{ color: "var(--accent)" }}>•</span>
                 <span>{inline(bullet[1], key)}</span>
               </span>
             );
@@ -91,9 +91,9 @@ export default function ModelText({ text }: { text: string }) {
           <span key={si} style={{
             // Set apart by the rule and a faint tint, NOT by fading the text — a quoted passage
             // is still meant to be read.
-            display: "block", borderLeft: "2px solid var(--teal)", paddingLeft: 10,
-            margin: "6px 0", color: "var(--ink)", fontStyle: "italic",
-            background: "color-mix(in srgb, var(--teal) 7%, transparent)",
+            display: "block", borderLeft: "2px solid var(--accent-2)", paddingLeft: 10,
+            margin: "6px 0", color: "var(--fg)", fontStyle: "italic",
+            background: "color-mix(in srgb, var(--accent-2) 7%, transparent)",
             borderRadius: "0 6px 6px 0", paddingTop: 4, paddingBottom: 4,
           }}>
             {body}
