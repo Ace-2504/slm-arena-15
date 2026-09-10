@@ -1,14 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import ModelText from "@/components/ModelText";
+import { MiniBox, Zoomable } from "@/components/mini";
+import { FlowArena } from "@/components/flows";
 
 /**
- * The arena: one question -> all 13 models generate LIVE -> every answer is
- * scored LIVE by a blind LLM judge.
+ * BOX 1 — the live arena. One question -> all N models generate LIVE -> every
+ * answer is scored LIVE by a blind judge that (for a held-out item) holds the gold key.
+ * Tabs: Benchmark (default) | Flowchart.
  *
- * Two question sources share one box:
- *  - the frozen held-out set, which carries a gold answer, so grading is checkable;
- *  - anything the user types, where the judge grades from its own knowledge (labelled as such).
+ * Backend wiring is UNCHANGED from the original arena:
+ *   GET  /health                    -> live status pill
+ *   POST /generate  (per model)     -> {completion, seconds, tokens}
+ *   POST /judge     (once, batched) -> {graded:{[id]:{score, parts, grounded, reason, error?}}}
  */
 type Model = { id: string; name: string; family: string; stage: string; site: string };
 type Q = { id: string; q: string; ctx: string; gold: string; source: string; answerable: boolean };
@@ -39,21 +43,14 @@ const SOURCE_LABEL: Record<string, string> = {
   "case-law": "US case law", sec: "SEC filings", "fineweb-edu": "Educational web",
 };
 
+// Score pill: tan (weak) -> green (strong). Semantic: greener = better.
 function scoreColor(s: number) {
-  return `hsl(${Math.round(s * 12)} 62% 42%)`;
+  const t = Math.max(0, Math.min(1, s / 10));
+  const tan = [199, 186, 152], grn = [47, 107, 79];
+  const c = tan.map((v, i) => Math.round(v + (grn[i] - v) * t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
-
-function ScorePill({ s, pending }: { s?: number; pending?: boolean }) {
-  if (pending || s === undefined) {
-    return <span className="mono badge" style={{ minWidth: 54, textAlign: "center" }}>–</span>;
-  }
-  return (
-    <span className="mono" style={{
-      fontWeight: 700, fontSize: "0.9rem", color: "#fff", background: scoreColor(s),
-      borderRadius: 7, padding: "3px 9px", minWidth: 54, textAlign: "center", display: "inline-block",
-    }} title="Blind LLM-judge score, 0–10">{s.toFixed(1)}</span>
-  );
-}
+const scoreText = (s: number) => (s < 3.5 ? "#1e293b" : "#fff");
 
 export default function ArenaLive({ models, questions }: { models: Model[]; questions: Q[] }) {
   const [text, setText] = useState(questions[0]?.q ?? "");
@@ -66,16 +63,19 @@ export default function ArenaLive({ models, questions }: { models: Model[]; ques
 
   const [live, setLive] = useState<boolean | null>(null);   // null = still probing
   const [endpoint, setEndpoint] = useState(BUILD_ENDPOINT);
-  useEffect(() => {
-    let cancelled = false;
+
+  function probe() {
     const ep = resolveEndpoint();
     setEndpoint(ep);
+    setLive(null);
+    let cancelled = false;
     const t = setTimeout(() => { if (!cancelled) setLive((v) => (v === null ? false : v)); }, 8000);
     fetch(`${ep}/health`, { cache: "no-store" })
       .then((r) => r.ok).catch(() => false)
       .then((ok) => { if (!cancelled) { clearTimeout(t); setLive(ok); } });
     return () => { cancelled = true; clearTimeout(t); };
-  }, []);
+  }
+  useEffect(() => probe(), []);
   const isKnown = picked !== null && picked.q === text.trim();
 
   function choose(q: Q) {
@@ -94,9 +94,8 @@ export default function ArenaLive({ models, questions }: { models: Model[]; ques
     setRows(Object.fromEntries(models.map((m) => [m.id, { status: "queued", text: "" } as Row])));
 
     const answers: Record<string, string> = {};
-    // Held-out items are GROUNDED questions: the answer lives in a source document, exactly as in
-    // the offline evaluation. Without it every model correctly fails, so the document is supplied.
-    // A user-written question has no document, so it is asked closed-book.
+    // Held-out items are GROUNDED questions: the answer lives in a source document. A user-written
+    // question has no document, so it is asked closed-book.
     const ctx = isKnown ? (picked?.ctx || undefined) : undefined;
 
     // Sequential: the GPU serialises generation anyway, and this streams results in.
@@ -118,7 +117,7 @@ export default function ArenaLive({ models, questions }: { models: Model[]; ques
       setDone((d) => d + 1);
     }
 
-    // Judge every answer that came back.
+    // Judge every answer that came back — one batched call.
     setPhase("judging");
     setRows((r) => Object.fromEntries(Object.entries(r).map(
       ([k, v]) => [k, v.status === "answered" ? { ...v, status: "judging" } : v])));
@@ -146,45 +145,34 @@ export default function ArenaLive({ models, questions }: { models: Model[]; ques
   }
 
   const busy = phase === "generating" || phase === "judging";
-  // Always lineage order (125M base -> ... -> Gemma RLAIF), never re-sorted by score: the point
-  // is to read a training pipeline top-to-bottom and see where each stage helps or hurts.
-  const ordered = models;
 
-  return (
-    <div className="panel card">
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-        <span className="tag">Arena</span>
-        <span className={live ? "badge badge-accent" : "badge"}>
-          {live === null ? "connecting…" : live ? "live · generated and judged in real time" : "demo unavailable"}
-        </span>
-        {busy && <span className="badge">
-          {phase === "generating" ? `generating ${done}/${models.length}` : "judging…"}
-        </span>}
-      </div>
+  // ---- status pill (skill states: ok | wake | off) ----
+  const statusCls = busy ? "wake" : live ? "ok" : live === null ? "" : "off";
+  const statusTxt = busy ? (phase === "generating" ? `generating ${done}/${models.length}…` : "judging…")
+    : live ? "demo available"
+    : live === null ? "connecting…"
+    : "demo unavailable — click to retry";
+  const status = (
+    <span className={`mstatus ${statusCls}`} title="live demo status"
+      onClick={() => { if (!busy && live === false) probe(); }}>
+      <span className="md" /><span>{statusTxt}</span>
+    </span>
+  );
 
-      <h2 style={{ marginTop: 0 }}>One question, {models.length} models, judged live</h2>
-      <p style={{ margin: "6px 0 14px" }}>
-        Pick a held-out question or write your own, and every model answers it in turn. A blind LLM
-        judge then scores each answer 0–10. A held-out question ships with its
-        source document and a gold answer — the models read the document, and the judge grades
-        against the reference. Your own question is asked closed-book and graded from the judge&apos;s
-        own knowledge.
-      </p>
-
-      {/* held-out question chips */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+  const benchmark = (
+    <div>
+      {/* preset question chips */}
+      <div className="mini-presets">
         {questions.slice(0, 6).map((q) => (
-          <button key={q.id} className="btn" disabled={busy}
-            style={{ fontSize: "0.8rem", padding: "6px 10px", textAlign: "left",
-                     borderColor: picked?.id === q.id ? "var(--accent)" : "var(--border)" }}
-            onClick={() => choose(q)}>
-            {q.q.length > 52 ? q.q.slice(0, 50) + "…" : q.q}
+          <button key={q.id} className={"mini-preset" + (picked?.id === q.id ? " sel" : "")}
+            disabled={busy} onClick={() => choose(q)}>
+            {q.q.length > 46 ? q.q.slice(0, 44) + "…" : q.q}
           </button>
         ))}
       </div>
 
-      <select className="field" style={{ marginBottom: 8 }} disabled={busy}
-        value={picked?.id ?? ""}
+      {/* full dropdown of every held-out question */}
+      <select className="mini-select" disabled={busy} value={picked?.id ?? ""}
         onChange={(e) => { const q = questions.find((x) => x.id === e.target.value); if (q) choose(q); }}>
         <option value="">— or pick from all {questions.length} held-out questions —</option>
         {questions.map((q, i) => (
@@ -192,73 +180,69 @@ export default function ArenaLive({ models, questions }: { models: Model[]; ques
         ))}
       </select>
 
-      <textarea className="field" rows={3} value={text} onChange={(e) => edit(e.target.value)}
+      <textarea className="mini-ta" rows={3} value={text} onChange={(e) => edit(e.target.value)}
         placeholder="Ask anything — or pick a held-out question above" disabled={busy}
-        style={{ resize: "vertical" }}
         onKeyDown={(e) => { if (!busy && e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
-        <button className="btn-primary" onClick={run} disabled={!live || busy || !text.trim()}>
+      <div className="mslabels" style={{ justifyContent: "flex-start", marginBottom: 12 }}>
+        <span>{isKnown
+          ? "held-out · document supplied · graded against the gold answer"
+          : "your question · closed-book · graded without a reference"}</span>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <button className="mini-run" onClick={run} disabled={!live || busy || !text.trim()}>
           {phase === "generating" ? `Generating ${done}/${models.length}…`
             : phase === "judging" ? "Judging…"
-            : `Ask all ${models.length} & judge`}
+            : `Ask all ${models.length} & judge →`}
         </button>
-        <span className="badge">
-          {isKnown ? "held-out question · document supplied · graded against the gold answer"
-                   : "your question · closed-book · graded without a reference"}
-        </span>
         {isKnown && picked && (
-          <button className="btn" style={{ fontSize: "0.8rem", padding: "5px 10px" }}
-            onClick={() => setShowGold((s) => !s)} disabled={busy}>
-            {showGold ? "hide answer key & document" : "show answer key & document"}
+          <button className="mini-preset" disabled={busy} onClick={() => setShowGold((s) => !s)}>
+            {showGold ? "hide answer key" : "show answer key"}
           </button>
         )}
       </div>
 
       {isKnown && picked && showGold && (
-        <div className="panel-inset" style={{ padding: "12px 14px", marginTop: 12 }}>
-          <span className="tag" style={{ color: "var(--accent-2)" }}>
-            Answer key · {SOURCE_LABEL[picked.source] ?? picked.source}
-          </span>
-          <p style={{ margin: "6px 0 0", lineHeight: 1.55 }}>{picked.gold}</p>
+        <div className="mkey">
+          <div className="mout-lab">Answer key · {SOURCE_LABEL[picked.source] ?? picked.source}</div>
+          <p style={{ margin: "0 0 0", fontSize: 14, lineHeight: 1.55, color: "var(--ink-soft)" }}>{picked.gold}</p>
           {picked.ctx && (
             <>
-              <div className="hairline" style={{ margin: "12px 0" }} />
-              <span className="tag">Source document given to every model</span>
-              <p className="mono" style={{ margin: "6px 0 0", fontSize: "0.78rem", lineHeight: 1.45,
-                   color: "var(--fg-muted)", whiteSpace: "pre-wrap", maxHeight: 200, overflow: "auto" }}>
-                {picked.ctx}
-              </p>
+              <div className="mout-lab" style={{ marginTop: 12 }}>Source document given to every model</div>
+              <div className="mini-text">{picked.ctx}</div>
             </>
           )}
         </div>
       )}
 
-      {err && <p style={{ color: "var(--accent)", marginTop: 12, fontSize: "0.88rem" }}>{err}</p>}
-      {live === false && (
-        <p style={{ marginTop: 12, fontSize: "0.88rem", color: "var(--fg-dim)" }}>
-          The inference endpoint is unavailable right now. The leaderboard below is unaffected — it
-          comes from the frozen offline evaluation.
+      {err && <p className="mexplain" style={{ color: "var(--rose)", marginTop: 12 }}>{err}</p>}
+      {live === false && !err && (
+        <p className="mcap" style={{ marginTop: 12 }}>
+          The inference endpoint is unavailable right now. The leaderboard and every other box below
+          are unaffected — they render from the frozen offline evaluation.
         </p>
       )}
 
       {Object.keys(rows).length > 0 && (
-        <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
-          {ordered.map((m) => {
+        <div className="mres">
+          {models.map((m) => {
             const row = rows[m.id];
             if (!row) return null;
-            const border = row.status === "generating" ? "var(--accent)"
-              : row.status === "error" ? "var(--accent-3)" : "var(--border-soft)";
+            const cls = row.status === "generating" ? "gen" : row.status === "error" ? "err" : "";
+            const done = row.status === "done" && row.score !== undefined;
             return (
-              <div key={m.id} className="panel-inset" style={{ padding: "12px 14px", borderColor: border }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <ScorePill s={row.score} pending={row.status !== "done"} />
-                  <a href={m.site} target="_blank" rel="noreferrer"
-                     style={{ fontWeight: 600, color: "var(--fg)", textDecoration: "none" }}>{m.name}</a>
-                  <span className="badge">{m.family}</span>
-                  <span className="badge">{m.stage}</span>
-                  {row.grounded && <span className="badge badge-accent">grounded</span>}
-                  <span style={{ marginLeft: "auto" }} className="badge">
+              <div key={m.id} className={`mcard ${cls}`}>
+                <div className="mcard-top">
+                  {done ? (
+                    <span className="mscore" style={{ background: scoreColor(row.score!), color: scoreText(row.score!) }}
+                      title="Blind judge score, 0–10">{row.score!.toFixed(1)}</span>
+                  ) : <span className="mscore pend">–</span>}
+                  <a href={m.site} target="_blank" rel="noreferrer">{m.name}</a>
+                  <span className="mbadge">{m.family}</span>
+                  <span className="mbadge">{m.stage}</span>
+                  {row.grounded && <span className="mbadge grn">grounded</span>}
+                  <span className="mbadge" style={{ marginLeft: "auto" }}>
                     {row.status === "queued" ? "queued"
                       : row.status === "generating" ? "generating…"
                       : row.status === "judging" ? "judging…"
@@ -266,37 +250,53 @@ export default function ArenaLive({ models, questions }: { models: Model[]; ques
                       : `${row.tokens} tok · ${row.secs}s`}
                   </span>
                 </div>
-                <p className="mono" style={{
-                  // The answer is the point of the page — full-contrast --fg (12.6:1), not the
-                  // muted token (4.3:1, under the 4.5:1 minimum and worse again on a projector).
-                  margin: "9px 0 0", fontSize: "0.88rem", lineHeight: 1.6, whiteSpace: "pre-wrap",
-                  color: row.error ? "var(--accent-3)" : "var(--fg)",
-                  maxHeight: 190, overflow: "auto",
-                }}>
+                <div className={"mcard-ans" + (row.error ? " err" : "")}>
                   {row.error ? row.error
                     : row.status === "queued" ? "—"
                     : row.text ? <ModelText text={row.text} /> : "…"}
-                </p>
+                </div>
                 {row.parts && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                    {[["correctness", 5], ["completeness", 2], ["groundedness", 2], ["clarity", 1]].map(
-                      ([k, max]) => (
-                        <span key={k as string} className="badge mono" title={`${k} out of ${max}`}>
-                          {(k as string).slice(0, 4)} {row.parts![k as string]}/{max}
-                        </span>
-                      ))}
+                  <div className="mrubric">
+                    {[["correctness", 5], ["completeness", 2], ["groundedness", 2], ["clarity", 1]].map(([k, max]) => (
+                      <span key={k as string} className="mbadge" title={`${k} out of ${max}`}>
+                        {(k as string).slice(0, 4)} {row.parts![k as string]}/{max}
+                      </span>
+                    ))}
                   </div>
                 )}
-                {row.reason && (
-                  <p style={{ margin: "8px 0 0", fontSize: "0.82rem", color: "var(--fg-muted)", fontStyle: "italic" }}>
-                    judge: {row.reason}
-                  </p>
-                )}
+                {row.reason && <p className="mreason">judge: {row.reason}</p>}
               </div>
             );
           })}
         </div>
       )}
     </div>
+  );
+
+  const flowchart = (
+    <div>
+      <Zoomable className="mdiag" caption="Every model answers the very same question, then one blind judge — holding the gold answer key — grades them all and lines them up best to worst.">
+        <FlowArena />
+      </Zoomable>
+      <p className="mcap">
+        Everyone in the room is handed the identical question; one impartial marker, who already has
+        the answer sheet, grades each reply and lines them up from best to worst.
+      </p>
+    </div>
+  );
+
+  return (
+    <MiniBox
+      eyebrow={`Live arena · ${models.length} models`}
+      status={status}
+      desc={<>Pick a <b>held-out question</b> or write your own, and every model answers it in turn.
+        A <b>blind judge</b> then scores each answer <b>0–10</b>. A held-out question ships with its
+        source document and a gold answer, so the grade is checkable; your own question is asked
+        closed-book. Watch all {models.length} take a run at the same prompt, live.</>}
+      tabs={[
+        { id: "run", label: "Benchmark", panel: benchmark },
+        { id: "flow", label: "Flowchart", panel: flowchart },
+      ]}
+    />
   );
 }

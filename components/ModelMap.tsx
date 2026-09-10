@@ -1,65 +1,48 @@
 "use client";
+import { Zoomable } from "@/components/mini";
 
 /**
- * The build, laid out: every training stage across every size. Each cell links to that model's
- * own site. Sizes that never shipped a stage (the 500M has no standalone QA-SFT or RAFT site)
- * render as an em-dash rather than a dead link.
+ * Intro "build map" — every training stage across every size, each cell linking to that model's
+ * own site. Data-driven: families and stages are read from the model list, so the same panel
+ * renders 13 or 15 models. Not one of the six experiment boxes — it orients the reader first.
  */
 type Model = { id: string; name: string; family: string; stage: string; site: string };
-
-const FAMILIES = ["125M", "500M", "Gemma 2B"];
-const STAGES: { key: string; label: string; note: string }[] = [
-  { key: "Base", label: "Base model", note: "next-token only" },
-  { key: "QA SFT", label: "QA SFT", note: "supervised fine-tune" },
-  { key: "RAFT", label: "RAFT", note: "retrieval-augmented" },
-  { key: "DPO", label: "DPO", note: "direct preference" },
-  { key: "RLAIF", label: "RLAIF", note: "reward model + PPO" },
-];
+const STAGE_ORDER = ["Base", "QA SFT", "RAFT", "DPO", "RLAIF"];
+const STAGE_LABEL: Record<string, string> = {
+  "Base": "base", "QA SFT": "qa", "RAFT": "raft", "DPO": "dpo", "RLAIF": "rlaif",
+};
 
 export default function ModelMap({ models }: { models: Model[] }) {
-  const at = (fam: string, stage: string) =>
-    models.find((m) => m.family === fam && m.stage === stage);
+  const families = models.reduce<string[]>((acc, m) => acc.includes(m.family) ? acc : [...acc, m.family], []);
+  const stages = STAGE_ORDER.filter((s) => models.some((m) => m.stage === s));
+  const at = (fam: string, stage: string) => models.find((m) => m.family === fam && m.stage === stage);
 
   return (
-    <div className="panel card">
-      <span className="tag">The build · {models.length} models in this arena</span>
-      <h2 style={{ marginTop: 6 }}>One pipeline, three sizes</h2>
-      <p style={{ margin: "6px 0 16px" }}>
-        Each row is a training stage, each column a model size. 125M and 500M were trained from
-        scratch; Gemma&nbsp;2&nbsp;B is Google&apos;s pretrained base. Click any cell to open that
-        model&apos;s own site — training details, cost, architecture and evaluation.
+    <div className="mintro">
+      <div className="mini-eyebrow">The build · {models.length} models in this arena</div>
+      <p className="desc" style={{ marginBottom: 12 }}>
+        One training pipeline, three sizes. <b>125M</b> and <b>500M</b> were trained from scratch;
+        <b> Gemma&nbsp;2B</b> is Google&apos;s pretrained base. Click any cell to open that model&apos;s
+        own site — training details, cost, architecture and evaluation.
       </p>
-
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ minWidth: 520 }}>
+      <Zoomable className="mtable-scroll" caption="The build map: five training stages (base → QA-SFT → RAFT → DPO → RLAIF) across three model sizes, each cell a link to that model's own site.">
+        <table className="mtable" style={{ minWidth: 440 }}>
           <thead>
-            <tr>
-              <th style={{ width: "26%" }}>Stage</th>
-              {FAMILIES.map((f) => (
-                <th key={f} style={{ textAlign: "center" }}>{f}</th>
-              ))}
-            </tr>
+            <tr><th>Stage</th>{families.map((f) => <th key={f} style={{ textAlign: "center" }}>{f}</th>)}</tr>
           </thead>
           <tbody>
-            {STAGES.map((st) => (
-              <tr key={st.key}>
-                <td style={{ verticalAlign: "top" }}>
-                  <div style={{ fontWeight: 600 }}>{st.label}</div>
-                  <div className="mono" style={{ fontSize: "0.75rem", color: "var(--fg-dim)" }}>{st.note}</div>
-                </td>
-                {FAMILIES.map((fam) => {
-                  const m = at(fam, st.key);
+            {stages.map((st) => (
+              <tr key={st}>
+                <td>{st}</td>
+                {families.map((fam) => {
+                  const m = at(fam, st);
                   return (
                     <td key={fam} style={{ textAlign: "center" }}>
                       {m ? (
-                        <a href={m.site} target="_blank" rel="noreferrer"
-                           className="badge" style={{ textDecoration: "none", display: "inline-block",
-                             padding: "5px 10px", color: "var(--fg)" }}>
-                          {fam} · {st.key === "Base" ? "base" : st.key.toLowerCase()}
+                        <a className="mchip" href={m.site} target="_blank" rel="noreferrer">
+                          {fam} · {STAGE_LABEL[st] ?? st.toLowerCase()}
                         </a>
-                      ) : (
-                        <span style={{ color: "var(--fg-dim)" }} title="not published for this size">—</span>
-                      )}
+                      ) : <span style={{ color: "var(--dim)" }} title="not published for this size">—</span>}
                     </td>
                   );
                 })}
@@ -67,11 +50,7 @@ export default function ModelMap({ models }: { models: Model[] }) {
             ))}
           </tbody>
         </table>
-      </div>
-      <p style={{ fontSize: "0.82rem", color: "var(--fg-dim)", marginTop: 12 }}>
-        Every stage is published for all three sizes — five training stages across 125M, 500M and
-        Gemma&nbsp;2&nbsp;B.
-      </p>
+      </Zoomable>
     </div>
   );
 }
